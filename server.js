@@ -20,11 +20,52 @@ const app = express()
 const httpServer = createServer(app)
 
 const FRONTEND_URL = process.env.FRONTEND_URL
-
 if (!FRONTEND_URL) {
   console.error("❌ FRONTEND_URL is missing in .env")
   process.exit(1)
 }
+
+/* =========================
+   CORS CONFIGURATION
+========================= */
+const allowedOrigins = [FRONTEND_URL]
+
+app.use(
+  cors({
+    origin: function (origin, callback) {
+      if (!origin) return callback(null, true) // allow curl / mobile requests
+      if (allowedOrigins.indexOf(origin) === -1) {
+        return callback(new Error("CORS policy: This origin is not allowed"), false)
+      }
+      return callback(null, true)
+    },
+    credentials: true, // allow cookies / auth headers
+  })
+)
+
+// Handle preflight (OPTIONS) globally
+app.options("*", cors({
+  origin: allowedOrigins,
+  credentials: true
+}))
+
+/* =========================
+   MIDDLEWARE
+========================= */
+app.use(express.json())
+app.use(express.urlencoded({ extended: true }))
+app.use(cookieParser())
+
+/* =========================
+   ROUTES
+========================= */
+app.use("/api/auth", authRoutes)
+app.use("/api/gigs", gigRoutes)
+app.use("/api/bids", bidRoutes)
+
+app.get("/api/health", (req, res) => {
+  res.json({ status: "ok", message: "GigFlow API running" })
+})
 
 /* =========================
    SOCKET.IO CONFIG
@@ -48,31 +89,6 @@ io.on("connection", (socket) => {
   socket.on("disconnect", () => {
     console.log("❌ Socket disconnected:", socket.id)
   })
-})
-
-/* =========================
-   MIDDLEWARE
-========================= */
-app.use(
-  cors({
-    origin: FRONTEND_URL,
-    credentials: true,
-  })
-)
-
-app.use(express.json())
-app.use(express.urlencoded({ extended: true }))
-app.use(cookieParser())
-
-/* =========================
-   ROUTES
-========================= */
-app.use("/api/auth", authRoutes)
-app.use("/api/gigs", gigRoutes)
-app.use("/api/bids", bidRoutes)
-
-app.get("/api/health", (req, res) => {
-  res.json({ status: "ok", message: "GigFlow API running" })
 })
 
 /* =========================
