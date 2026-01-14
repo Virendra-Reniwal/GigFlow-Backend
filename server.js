@@ -19,19 +19,41 @@ dotenv.config()
 const app = express()
 const httpServer = createServer(app)
 
-const FRONTEND_URL = process.env.FRONTEND_URL
+/* =========================
+   DEV CORS (FAST & SAFE)
+========================= */
+app.use(cors({
+  origin: true,        // allow ALL origins (dev)
+  credentials: true,  // allow cookies / auth
+}))
 
-if (!FRONTEND_URL) {
-  console.error("❌ FRONTEND_URL is missing in .env")
-  process.exit(1)
-}
+// Handle ALL preflight OPTIONS requests
+app.options("*", cors())
 
 /* =========================
-   SOCKET.IO CONFIG
+   MIDDLEWARE
+========================= */
+app.use(express.json())
+app.use(express.urlencoded({ extended: true }))
+app.use(cookieParser())
+
+/* =========================
+   ROUTES
+========================= */
+app.use("/api/auth", authRoutes)
+app.use("/api/gigs", gigRoutes)
+app.use("/api/bids", bidRoutes)
+
+app.get("/api/health", (req, res) => {
+  res.json({ status: "ok", message: "GigFlow API running" })
+})
+
+/* =========================
+   SOCKET.IO (DEV SAFE)
 ========================= */
 const io = new Server(httpServer, {
   cors: {
-    origin: FRONTEND_URL,
+    origin: true,
     credentials: true,
   },
 })
@@ -51,31 +73,6 @@ io.on("connection", (socket) => {
 })
 
 /* =========================
-   MIDDLEWARE
-========================= */
-app.use(
-  cors({
-    origin: FRONTEND_URL,
-    credentials: true,
-  })
-)
-
-app.use(express.json())
-app.use(express.urlencoded({ extended: true }))
-app.use(cookieParser())
-
-/* =========================
-   ROUTES
-========================= */
-app.use("/api/auth", authRoutes)
-app.use("/api/gigs", gigRoutes)
-app.use("/api/bids", bidRoutes)
-
-app.get("/api/health", (req, res) => {
-  res.json({ status: "ok", message: "GigFlow API running" })
-})
-
-/* =========================
    ERROR HANDLER
 ========================= */
 app.use(errorHandler)
@@ -90,8 +87,7 @@ mongoose
   .then(() => {
     console.log("✅ MongoDB connected")
     httpServer.listen(PORT, () => {
-      console.log(`🚀 Server running on http://localhost:${PORT}`)
-      console.log(`🌐 Allowed origin: ${FRONTEND_URL}`)
+      console.log(`🚀 Server running on port ${PORT}`)
     })
   })
   .catch((err) => {
