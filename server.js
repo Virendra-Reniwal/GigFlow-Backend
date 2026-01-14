@@ -20,14 +20,19 @@ const app = express()
 const httpServer = createServer(app)
 
 /* =========================
-   DEV CORS (FAST & SAFE)
+   CORS (PROD + DEV SAFE)
+   Works with Vercel proxy
 ========================= */
-app.use(cors({
-  origin: true,        // allow ALL origins (dev)
-  credentials: true,  // allow cookies / auth
-}))
+app.use(
+  cors({
+    origin: true,          // allow Vercel proxy + dev
+    credentials: true,    // cookies / auth
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
+  })
+)
 
-// Handle ALL preflight OPTIONS requests
+// ✅ IMPORTANT: handle preflight properly (fixes 500)
 app.options("*", cors())
 
 /* =========================
@@ -45,11 +50,14 @@ app.use("/api/gigs", gigRoutes)
 app.use("/api/bids", bidRoutes)
 
 app.get("/api/health", (req, res) => {
-  res.json({ status: "ok", message: "GigFlow API running" })
+  res.status(200).json({
+    status: "ok",
+    message: "GigFlow API running",
+  })
 })
 
 /* =========================
-   SOCKET.IO (DEV SAFE)
+   SOCKET.IO (SAFE)
 ========================= */
 const io = new Server(httpServer, {
   cors: {
